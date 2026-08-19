@@ -5,6 +5,9 @@
         // 1) sitename.com/onixlol
         var seg = window.location.pathname.split('/').filter(Boolean)
             .filter(function(s){ return !/\.(html?|css|js)$/i.test(s); });
+        if (seg[0] && seg[0].toLowerCase() === 'gitbio') {
+            seg.shift(); 
+        }
         if (seg.length) return decodeURIComponent(seg[seg.length - 1]);
 
         // 2) ?u=onixlol
