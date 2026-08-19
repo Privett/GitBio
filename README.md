@@ -8,7 +8,7 @@ Originally created as my personal bio page, **GitBio** is built as an open-sourc
 
 ## 🔗 Live Demo & Usage
 
-- **Default Profile:** [privett.github.io/GitBio](https://privett.github.io/GitBio/)
+- **Default Profile:** [privett.github.io/GitBio](https://privett.github.io/GitBio/Privett)
 - **View Any Profile:** Add any GitHub username to the end of the URL:
   ```text
   [https://privett.github.io/GitBio/YOUR_USERNAME](https://privett.github.io/GitBio/YOUR_USERNAME)
