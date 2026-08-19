@@ -5,7 +5,7 @@
         // 1) sitename.com/onixlol
         var seg = window.location.pathname.split('/').filter(Boolean)
             .filter(function(s){ return !/\.(html?|css|js)$/i.test(s); });
-        if (seg.length) return decodeURIComponent(seg[seg.length - 2]);
+        if (seg.length) return decodeURIComponent(seg[seg.length - 1]);
 
         // 2) ?u=onixlol
         var params = new URLSearchParams(window.location.search);
