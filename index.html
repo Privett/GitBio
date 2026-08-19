@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="title">GitHub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <link rel="stylesheet" href="css/index.css">
+    <script>
+        (function(l){
+            if (l.search[1] === '/'){
+                var decoded = l.search.slice(1).split('&').map(function(s){ return s.replace(/~and~/g, '&'); }).join('?');
+                window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+            }
+        }(window.location));
+    </script>
+</head>
+<body>
+    <div class="bg-layer">
+        <pre class="bg-code" id="bgCode"></pre>
+        <div class="bg-tint"></div>
+        <div class="bg-scrim"></div>
+    </div>
+
+    <header class="topbar">
+        <div class="wrap topbar-inner">
+            <div class="brand-mini"><span class="brand-dot"></span><span id="brandLabel">github</span></div>
+            <a class="btn ghost" id="ghLink" target="_blank" rel="noopener">Open on GitHub ↗</a>
+        </div>
+    </header>
+
+    <main id="viewProfile" class="wrap profile-view">
+        <section class="profile-head">
+            <img id="avatar" class="avatar" alt="">
+            <h1 id="displayName">…</h1>
+            <p class="handle" id="loginHandle">@…</p>
+            <p class="bio" id="bio"></p>
+            <div class="stat-row" id="statRow"></div>
+            <div class="cta-row">
+                <a class="btn primary" id="followBtn" target="_blank" rel="noopener">Follow on GitHub</a>
+                <a class="btn ghost" href="#repos">All repositories</a>
+            </div>
+        </section>
+
+        <section id="repos" class="repos-section">
+            <div class="section-head">
+                <h2>Repositories</h2>
+                <span class="count" id="repoCount"></span>
+            </div>
+            <div id="repoGrid" class="repo-grid"></div>
+        </section>
+    </main>
+
+    <div id="viewDetail" class="detail-view" hidden>
+        <div class="detail-inner">
+            <button class="btn ghost back-btn" id="backBtn" type="button">← Back</button>
+            <div class="detail-card">
+                <div class="detail-top">
+                    <h2 id="detailName">…</h2>
+                    <span class="lang-pill" id="detailLang"></span>
+                </div>
+                <p class="detail-desc" id="detailDesc"></p>
+                <div class="detail-meta" id="detailMeta"></div>
+                <div class="detail-actions">
+                    <a class="btn primary" id="detailLink" target="_blank" rel="noopener">Open repository ↗</a>
+                    <a class="btn ghost" id="detailZip" target="_blank" rel="noopener">⭳ Download code (.zip)</a>
+                    <button class="btn ghost" id="detailFileDl" type="button" hidden>⭳ Download file</button>
+                </div>
+                <div class="detail-readme" id="detailReadme">
+                    <p class="detail-loading" id="detailLoading"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Updated directly from GitHub
+    </footer>
+
+    <script src="js/index.js"></script>
+</body>
+</html>
