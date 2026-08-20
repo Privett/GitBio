@@ -1,30 +1,40 @@
 (function(){
+    var SITE_OWNER = '';
+
     var DEFAULT_USER = 'Privett';
 
-    function resolveUser(){
-        // 1) sitename.com/onixlol
-        var seg = window.location.pathname.split('/').filter(Boolean)
-            .filter(function(s){ return !/\.(html?|css|js)$/i.test(s); });
-        if (seg[0] && seg[0].toLowerCase() === 'gitbio') {
-            seg.shift(); 
-        }
-        if (seg.length) return decodeURIComponent(seg[seg.length - 1]);
+    var BASE_PATH_SEGMENTS = 1;
 
-        // 2) ?u=onixlol
+    function resolveUser(){
         var params = new URLSearchParams(window.location.search);
         if (params.get('u')) return params.get('u');
 
-        // 3)  ?Privett
         var raw = window.location.search.replace(/^\?/, '');
         if (raw && raw.indexOf('=') === -1) return decodeURIComponent(raw);
 
         var hashMatch = window.location.hash.match(/^#\/([^\/?#]+)/);
         if (hashMatch) return decodeURIComponent(hashMatch[1]);
 
+        if (SITE_OWNER) return SITE_OWNER;
+
+        var host = window.location.hostname.toLowerCase();
+        var ghIoIndex = host.indexOf('.github.io');
+        if (ghIoIndex !== -1){
+            var beforeGhIo = host.slice(0, ghIoIndex);
+            var user = beforeGhIo.split('.').pop();
+            if (user) return user;
+        }
+
+        var seg = window.location.pathname.split('/').filter(Boolean)
+            .slice(BASE_PATH_SEGMENTS)
+            .filter(function(s){ return !/\.(html?|css|js)$/i.test(s); });
+        if (seg.length) return decodeURIComponent(seg[seg.length - 1]);
+
         return DEFAULT_USER;
     }
 
     const GH_USER = resolveUser();
+    console.log('[GitBio] resolved user:', GH_USER, '| hostname:', window.location.hostname, '| pathname:', window.location.pathname);
     document.title = GH_USER + ' — GitHub';
 
     var API = 'https://api.github.com';
@@ -52,6 +62,37 @@
     var detailFileDl = document.getElementById('detailFileDl');
     var detailReadme = document.getElementById('detailReadme');
     var detailLoading = document.getElementById('detailLoading');
+    var aboutSection = document.getElementById('aboutSection');
+    var aboutCard     = document.getElementById('aboutCard');
+    var showAllBtn    = document.getElementById('showAllBtn');
+
+    var REPO_PREVIEW_COUNT = 4;
+    var allRepos = [];
+    var profileBlog = '';
+    var portfolioRepoName = null;
+    var portfolioUrl = '';
+
+    function renderRepos(list){
+        elGrid.innerHTML = '';
+        if (!list.length){
+            var e = document.createElement('div');
+            e.className = 'empty-msg';
+            e.textContent = 'No public repositories yet.';
+            elGrid.appendChild(e);
+            return;
+        }
+        list.forEach(function(repo){ elGrid.appendChild(renderRepoCard(repo)); });
+    }
+
+    showAllBtn.addEventListener('click', function(e){
+        if (!allRepos.length) return;
+        e.preventDefault();
+        renderRepos(allRepos);
+        elCount.textContent = allRepos.length + (allRepos.length===1 ? ' repository' : ' repositories');
+        aboutSection.hidden = true;
+        showAllBtn.hidden = true;
+        document.getElementById('repos').scrollIntoView({behavior:'smooth'});
+    });
 
     var LANG_COLORS = {
         JavaScript:'#f1e05a', TypeScript:'#3178c6', Python:'#3572A5', HTML:'#e34c26',
@@ -156,13 +197,29 @@
     }
 
     function fetchReadme(owner, repo){
-        return fetch(API + '/repos/' + owner + '/' + repo + '/readme')
-        .then(function(r){ return r.ok ? r.json() : null; })
+        var url = API + '/repos/' + owner + '/' + repo + '/readme';
+        return fetch(url)
+        .then(function(r){
+            if (!r.ok){
+                console.log('[GitBio] fetchReadme: GET ' + url + ' → HTTP ' + r.status + ' (repo/README not found, or rate limit)');
+                return null;
+            }
+            return r.json();
+        })
         .then(function(meta){
             if (!meta || !meta.download_url) return null;
-            return fetch(meta.download_url).then(function(r){ return r.ok ? r.text() : null; });
+            return fetch(meta.download_url).then(function(r){
+                if (!r.ok){
+                    console.log('[GitBio] fetchReadme: could not download raw README, HTTP ' + r.status);
+                    return null;
+                }
+                return r.text();
+            });
         })
-        .catch(function(){ return null; });
+        .catch(function(err){
+            console.log('[GitBio] fetchReadme: network error', err);
+            return null;
+        });
     }
 
     function forceDownload(url, filename){
@@ -173,6 +230,51 @@
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function(){ URL.revokeObjectURL(objUrl); }, 4000);
         }).catch(function(){ window.open(url, '_blank'); });
+    }
+
+    function normalizeSiteUrl(url){
+        return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+    }
+
+    function pickPortfolioRepo(repos, username, blog){
+        var lowerUsername = username.toLowerCase();
+        var cleanProfileSite = blog ? normalizeSiteUrl(blog) : '';
+        var best = null;
+
+        repos.forEach(function(repo){
+            var score = 0;
+            var repoName = repo.name.toLowerCase();
+
+            if (blog){
+                if (blog.toLowerCase().indexOf(repoName) !== -1) score += 60;
+                if (repo.homepage){
+                    var cleanRepoHomepage = normalizeSiteUrl(repo.homepage);
+                    if (cleanProfileSite && cleanProfileSite === cleanRepoHomepage) score += 60;
+                }
+            }
+
+            if (repoName === lowerUsername + '.github.io') score += 50;
+            else if (repoName.slice(-'.github.io'.length) === '.github.io' && repoName.length > '.github.io'.length) score += 30;
+
+            if (repo.has_pages) score += 20;
+
+            var targetTopics = ['portfolio', 'personal-website', 'cv', 'resume', 'homepage'];
+            if (repo.topics && repo.topics.some(function(t){ return targetTopics.indexOf(t.toLowerCase()) !== -1; })) score += 15;
+
+            if (repo.homepage && repo.homepage.trim() !== '') score += 15;
+
+            if (score > 0 && (!best || score > best.score)) best = {repo: repo, score: score};
+        });
+
+        return best;
+    }
+
+    function portfolioLiveUrl(repo, username){
+        if (repo.homepage && repo.homepage.trim()) return repo.homepage.trim();
+        var repoName = repo.name.toLowerCase();
+        if (repoName === username.toLowerCase() + '.github.io') return 'https://' + repoName + '/';
+        if (repo.has_pages) return 'https://' + username.toLowerCase() + '.github.io/' + repo.name + '/';
+        return repo.html_url;
     }
 
     function renderRepoCard(repo){
@@ -200,6 +302,13 @@
         thumb.appendChild(fallbackLabel);
         };
         thumb.appendChild(img);
+
+        if (portfolioRepoName && repo.name === portfolioRepoName){
+            var badge = document.createElement('span');
+            badge.className = 'repo-portfolio-badge';
+            badge.textContent = '🌐 Portfolio';
+            thumb.appendChild(badge);
+        }
 
         var body = document.createElement('div');
         body.className = 'repo-body';
@@ -282,61 +391,96 @@
     window.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !viewDetail.hidden) closeDetail(); });
     window.addEventListener('popstate', function(){ if (location.hash.indexOf('#repo/') !== 0) closeDetail(); });
 
-    fetch(API + '/users/' + GH_USER)
-        .then(function(r){ if(!r.ok) throw new Error('rate-limit'); return r.json(); })
-        .then(function(u){
-        elName.textContent = u.name || u.login;
-        elHandle.textContent = '@' + u.login;
-        elBio.textContent = u.bio || '';
-        elBio.style.display = u.bio ? '' : 'none';
-        elBrand.textContent = u.login;
-        elGhLink.href = u.html_url;
-        elFollow.href = u.html_url;
-        elStats.innerHTML =
-            '<span><b>' + u.public_repos + '</b> repositories</span>' +
-            '<span><b>' + u.followers + '</b> followers</span>' +
-            '<span><b>' + u.following + '</b> following</span>';
-        document.title = (u.name || u.login) + ' — GitHub';
+    var visitSiteBtn = document.getElementById('visitSiteBtn');
 
-        elAvatar.crossOrigin = 'anonymous';
-        elAvatar.onload = function(){ applyTintFromImage(elAvatar); };
-        elAvatar.src = u.avatar_url + '&s=128';
-        })
-        .catch(function(){
-        elName.textContent = GH_USER;
-        elHandle.textContent = '@' + GH_USER;
-        elBio.textContent = 'Failed to load GitHub profile (possibly rate limited). Try refreshing the page a bit later.';
-        });
+    function loadUser(){
+        return fetch(API + '/users/' + GH_USER)
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .catch(function(){ return null; });
+    }
+    function loadRepos(){
+        return fetch(API + '/users/' + GH_USER + '/repos?sort=updated&per_page=100')
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .catch(function(){ return null; });
+    }
 
-    elGrid.innerHTML = '<div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div>';
+    Promise.all([loadUser(), loadRepos()]).then(function(results){
+        var u = results[0];
+        var reposRaw = results[1];
 
-    fetch(API + '/users/' + GH_USER + '/repos?sort=updated&per_page=100')
-        .then(function(r){ if(!r.ok) throw new Error('rate-limit'); return r.json(); })
-        .then(function(repos){
-        repos = repos.filter(function(r){
-            return !r.fork && r.name.toLowerCase() !== GH_USER.toLowerCase();
-        });
-        elCount.textContent = repos.length + (repos.length===1 ? ' repository' : ' repositories');
-        elGrid.innerHTML = '';
-        if (!repos.length){
-            var e = document.createElement('div');
-            e.className = 'empty-msg';
-            e.textContent = 'No public repositories yet.';
-            elGrid.appendChild(e);
+        if (u){
+            elName.textContent = u.name || u.login;
+            elHandle.textContent = '@' + u.login;
+            elBio.textContent = u.bio || '';
+            elBio.style.display = u.bio ? '' : 'none';
+            elBrand.textContent = u.login;
+            elGhLink.href = u.html_url;
+            elFollow.href = u.html_url;
+            elStats.innerHTML =
+                '<span><b>' + u.public_repos + '</b> repositories</span>' +
+                '<span><b>' + u.followers + '</b> followers</span>' +
+                '<span><b>' + u.following + '</b> following</span>';
+            document.title = (u.name || u.login) + ' — GitHub';
+            profileBlog = u.blog || '';
+
+            elAvatar.crossOrigin = 'anonymous';
+            elAvatar.onload = function(){ applyTintFromImage(elAvatar); };
+            elAvatar.src = u.avatar_url + '&s=128';
+        } else {
+            elName.textContent = GH_USER;
+            elHandle.textContent = '@' + GH_USER;
+            elBio.textContent = 'Failed to load GitHub profile (possibly rate limited). Try refreshing the page a bit later.';
+        }
+
+        if (Array.isArray(reposRaw)){
+            var repos = reposRaw.filter(function(r){
+                return !r.fork && r.name.toLowerCase() !== GH_USER.toLowerCase();
+            });
+            allRepos = repos;
+            elCount.textContent = repos.length + (repos.length===1 ? ' repository' : ' repositories');
+
+            var found = pickPortfolioRepo(repos, GH_USER, profileBlog);
+            if (found){ 
+                portfolioRepoName = found.repo.name;
+                portfolioUrl = portfolioLiveUrl(found.repo, GH_USER);
+                console.log('[GitBio] Portfolio repo detected:', found.repo.name, '(score ' + found.score + ') →', portfolioUrl);
+                visitSiteBtn.href = portfolioUrl;
+                visitSiteBtn.hidden = false;
+            } else {
+                console.log('[GitBio] No portfolio repo detected among', repos.length, 'repositories.');
+            }
+
+            renderRepos(repos.slice(0, REPO_PREVIEW_COUNT));
+            showAllBtn.hidden = repos.length <= REPO_PREVIEW_COUNT;
+
+            var top = repos.slice().sort(function(a,b){ return (b.stargazers_count||0)-(a.stargazers_count||0); })[0];
+            if (top){
+                fetchRepoCode(top.owner.login, top.name).then(function(file){
+                    window.__homeCode = (file && file.text) || PLACEHOLDER_CODE;
+                    if (viewDetail.hidden) setBgCode(window.__homeCode);
+                });
+            }
+        } else {
+            elGrid.innerHTML = '<div class="empty-msg">Failed to load repositories (probably GitHub API rate limit). Refresh the page in a few minutes.</div>';
+            setBgCode(PLACEHOLDER_CODE);
+        }
+    });
+
+    fetchReadme(GH_USER, GH_USER).then(function(md){
+        if (!md){
+            console.log('[GitBio] About: repo "' + GH_USER + '/' + GH_USER + '" or its README was NOT found — About section stays hidden.');
             return;
         }
-        repos.forEach(function(repo){ elGrid.appendChild(renderRepoCard(repo)); });
+        console.log('[GitBio] About: found README in "' + GH_USER + '/' + GH_USER + '" (' + md.length + ' chars) — showing About section.');
+        try{
+            aboutCard.innerHTML = window.marked ? marked.parse(md) : md;
+        }catch(e){
+            aboutCard.textContent = md;
+        }
+        aboutSection.hidden = false;
+    });
 
-        var top = repos.slice().sort(function(a,b){ return (b.stargazers_count||0)-(a.stargazers_count||0); })[0];
-        fetchRepoCode(top.owner.login, top.name).then(function(file){
-            window.__homeCode = (file && file.text) || PLACEHOLDER_CODE;
-            if (viewDetail.hidden) setBgCode(window.__homeCode);
-        });
-        })
-        .catch(function(){
-        elGrid.innerHTML = '<div class="empty-msg">Failed to load repositories (probably GitHub API rate limit). Refresh the page in a few minutes.</div>';
-        setBgCode(PLACEHOLDER_CODE);
-        });
+    elGrid.innerHTML = '<div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div><div class="repo-card skeleton skeleton-card"></div>';
 
     setBgCode(PLACEHOLDER_CODE);
 
