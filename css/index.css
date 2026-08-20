@@ -216,6 +216,69 @@ h1 {
     justify-content:center;
 }
 
+.about-section {
+    padding:52px 0 20px;
+}
+.about-card {
+    background:var(--panel); 
+    border:1px solid var(--panel-border); 
+    border-radius:16px;
+    padding:24px 26px; 
+    backdrop-filter:blur(10px); 
+    text-align:left;
+    font-size:14.5px;
+}
+.about-card h1,.about-card h2,.about-card h3 {
+    font-family:var(--mono); 
+    line-height:1.3; 
+    margin:20px 0 8px;
+}
+.about-card h1:first-child,.about-card h2:first-child,.about-card h3:first-child {
+    margin-top:0;
+}
+.about-card p {
+    margin:0 0 12px; 
+    color:#d7dbe6;
+}
+.about-card a {
+    color:rgb(var(--tint-strong)); 
+    text-decoration:underline;
+}
+.about-card code {
+    font-family:var(--mono); 
+    background:rgba(255,255,255,.08); 
+    padding:1px 5px; 
+    border-radius:4px; 
+    font-size:.9em;
+}
+.about-card pre {
+    background:rgba(255,255,255,.05); 
+    border:1px solid var(--panel-border); 
+    border-radius:8px; 
+    padding:12px 14px; 
+    overflow-x:auto; 
+    margin:0 0 14px;
+}
+.about-card pre code {
+    background:none; 
+    padding:0;
+}
+.about-card ul,.about-card ol {
+    margin:0 0 12px; 
+    padding-left:22px; 
+    color:#d7dbe6;
+}
+.about-card img {
+    border-radius:8px; 
+    margin:8px 0; 
+    max-width:100%;
+}
+.about-card hr {
+    border:none; 
+    border-top:1px solid var(--panel-border); 
+    margin:18px 0;
+}
+
 .section-head {
     display:flex; 
     align-items:baseline; 
@@ -304,6 +367,20 @@ h1 {
     max-width:90%; 
     overflow:hidden; 
     text-overflow:ellipsis; 
+    white-space:nowrap;
+}
+.repo-portfolio-badge {
+    position:absolute; 
+    top:8px; 
+    left:8px; 
+    z-index:2;
+    font-family:var(--mono); 
+    font-size:11px; 
+    padding:4px 10px; 
+    border-radius:999px; 
+    background:rgba(0,0,0,.6); 
+    backdrop-filter:blur(6px); 
+    color:#fff; 
     white-space:nowrap;
 }
 .repo-body {
